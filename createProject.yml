@@ -1,0 +1,85 @@
+---
+- hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Create Project Category
+      uri:
+        url: "{{ atlassian_url }}/rest/api/2/projectCategory"
+        method: POST
+        user: "{{ atlassian_username }}"
+        password: "{{ atlassian_password }}"
+        return_content: yes
+        force_basic_auth: yes
+        body_format: json
+        header:
+          - Accept: 'application/json'
+          - Content-Type: 'application/json'
+        body: "{ 'name': '{{ category_name }}',
+                  'description': '{{ category_description }}' }"
+        status_code: 201
+      register: category
+
+    - name: Set fact for Category ID
+      set_fact:
+        CategoryID: "{{ category.json.id }}"
+
+    - name: Project Category Details
+      debug:
+        msg : "{{ category.json }}"
+
+    - name: Create Permission Scheme
+      uri:
+        url: "{{ atlassian_url }}/rest/api/2/permissionscheme"
+        method: POST
+        user: "{{ atlassian_username }}"
+        password: "{{ atlassian_password }}"
+        return_content: yes
+        force_basic_auth: yes
+        body_format: json
+        header:
+          - Accept: 'application/json'
+          - Content-Type: 'application/json'
+        body: "{{ lookup('template','permissionScheme.json.j2') }}"
+        status_code: 201
+      register: permissionScheme
+
+    - name: Set fact for Permission Scheme ID
+      set_fact:
+        PermissionScheme: "{{ permissionScheme.json.id }}"
+
+    - name: Permission Scheme Details
+      debug:
+        msg: "{{ permissionScheme.json }}"
+
+    - name: Create Sample Project
+      uri:
+        url: "{{ atlassian_url }}/rest/api/2/project"
+        method: POST
+        user: "{{ atlassian_username }}"
+        password: "{{ atlassian_password }}"
+        return_content: yes
+        force_basic_auth: yes
+        body_format: json
+        header:
+          - Accept: 'application/json'
+          - Content-Type: 'application/json'
+        body: "{ 'key': '{{ atlassion_key }}', 
+                 'name': '{{ atlassion_project }}',
+                 'projectTypeKey': 'software',
+                 'projectTemplateKey': 'com.pyxis.greenhopper.jira:gh-simplified-scrum',
+                 'description': 'Project created using Ansible playbook',
+                 'lead': '{{ atlassion_username }}',
+                 'assigneeType': 'PROJECT_LEAD',
+                 'avatarId': 10200,
+                 'permissionScheme': '{{ PermissionScheme }}',
+                 'notificationScheme': 10000, 
+                 'categoryId': '{{ CategoryID }}' 
+                 }"
+        status_code: 201         
+      register: result
+
+    - name: Project Creation Details
+      debug:
+        msg: "{{ result.json }}"
